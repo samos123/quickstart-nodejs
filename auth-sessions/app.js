@@ -109,7 +109,7 @@ function checkIfSignedIn(url) {
 
 // Initialize Admin SDK.
 admin.initializeApp({
-  credential: admin.credential.cert('serviceAccountKeys.json')
+    credential: admin.credential.applicationDefault()
 });
 // Support JSON-encoded bodies.
 app.use(bodyParser.json());
@@ -150,7 +150,7 @@ app.post('/sessionLogin', function (req, res) {
   
   // Guard against CSRF attacks.
   if (!req.cookies || csrfToken !== req.cookies.csrfToken) {
-    res.status(401).send('UNAUTHORIZED REQUEST!');
+    res.status(401).send('UNAUTHORIZED REQUEST! Invalid CSRF token');
     return;
   }
   // Set session expiration to 5 days.
@@ -163,17 +163,17 @@ app.post('/sessionLogin', function (req, res) {
     if (new Date().getTime() / 1000 - decodedClaims.auth_time < 5 * 60) {
       return admin.auth().createSessionCookie(idToken, {expiresIn: expiresIn});
     }
-    throw new Error('UNAUTHORIZED REQUEST!');
+    throw new Error('UNAUTHORIZED REQUEST! Token expired.');
   })
   .then(function(sessionCookie) {
     // Note httpOnly cookie will not be accessible from javascript.
     // secure flag should be set to true in production.
-    const options = {maxAge: expiresIn, httpOnly: true, secure: false /** to test in localhost */};
+    const options = {domain: "samos-it.com",  maxAge: expiresIn, httpOnly: true, secure: false};
     res.cookie('session', sessionCookie, options);
     res.end(JSON.stringify({status: 'success'}));
   })
   .catch(function(error) {
-    res.status(401).send('UNAUTHORIZED REQUEST!');
+    res.status(401).send('UNAUTHORIZED REQUEST!' + error);
   });
 });
 
@@ -181,7 +181,7 @@ app.post('/sessionLogin', function (req, res) {
 app.get('/logout', function (req, res) {
   // Clear cookie.
   const sessionCookie = req.cookies.session || '';
-  res.clearCookie('session');
+  res.clearCookie('session', {domain: "samos-it.com"});
   // Revoke session too. Note this will revoke all user sessions.
   if (sessionCookie) {
     admin.auth().verifySessionCookie(sessionCookie, true).then(function(decodedClaims) {
@@ -224,7 +224,6 @@ app.get('/delete', function (req, res) {
   }
 });
 
-// Start http server and listen to port 3000.
-app.listen(3000, function () {
-  console.log('Sample app listening on port 3000!')
+app.listen(8080, function () {
+  console.log('Sample app listening on port 8080!')
 })
